@@ -1,0 +1,14 @@
+from transformers import pipeline
+
+# Initialize the summarization pipeline
+summarizer = pipeline("summarization")
+
+# Your text goes here
+text = """This century is the age of Science. We cannot imagine our lives sans Science. Science has become a part and parcel of our lives. Science has become a symbol of progress. The progress is in the field of medicine, education, industry, etc., and we enjoy the comforts of science in all fields. Science has developed effective transport and communication system. Buses, cars, trains, planes have made transportation easy and comfortable, safe and fast. Man has even landed on moon with the help of technology.
+In the field of medicine, science has worked wonders. Almost all kinds of diseases are entirely cured by modern drugs and medicines. Medicine has reduced pain and suffering. Electricity is another important scientific invention. the comforts of our life like electric lamps, refrigerators, fans, grinders, washing machines, etc. are all run by electricity.
+Scientific method of cultivation has solved the flood problem. The pests destroying the crops are killed immediately by pesticides. Poultry and sericulture are also improved. Thus science is helpful in all walks of life and makes our life comfortable and happy."""
+
+# Perform summarization
+summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
+
+print(summary[0]['summary_text'])
