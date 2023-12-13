@@ -1,0 +1,42 @@
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+from transformers import pipeline
+
+# Extractive Summarization Function
+def extractive_summarization(text, num_sentences=3):
+    sentences = text.split('.')
+    vectorizer = CountVectorizer().fit_transform(sentences)
+    vectors = vectorizer.toarray()
+    cosine_matrix = cosine_similarity(vectors)
+    scores = cosine_matrix.sum(axis=1)
+    ranked_sentences = [sentences[i] for i in np.argsort(scores, axis=0)[-num_sentences:]]
+    return ' '.join(ranked_sentences)
+
+# Abstractive Summarization Function
+def abstractive_summarization(text):
+    summarizer = pipeline("summarization")
+    summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
+    return summary[0]['summary_text']
+
+# Query-Based Summarization Function (Conceptual Example)
+def query_based_summarization(query, text):
+    # This is a placeholder for the actual implementation
+    # which would involve searching the text for the query
+    # and then summarizing the relevant parts.
+    return "Query-based summary based on: " + query
+
+# Main Function to Combine Summarizations
+def combined_summarization(text, query=None):
+    print("Extractive Summary:")
+    print(extractive_summarization(text))
+    print("\nAbstractive Summary:")
+    print(abstractive_summarization(text))
+    if query:
+        print("\nQuery-Based Summary:")
+        print(query_based_summarization(query, text))
+
+# Example Usage
+text = "Your text goes here."
+query = "Optional query for query-based summarization."
+combined_summarization(text, query)
