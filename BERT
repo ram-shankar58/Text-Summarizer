@@ -1,4 +1,4 @@
-from transformers import pipeline
+'''from transformers import pipeline
 
 # Initialize the summarization pipeline
 summarizer = pipeline("summarization")
@@ -11,4 +11,23 @@ Scientific method of cultivation has solved the flood problem. The pests destroy
 # Perform summarization
 summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
 
-print(summary[0]['summary_text'])
+print(summary[0]['summary_text'])'''
+from transformers import pipeline
+
+# Function to summarize text based on user input
+def summarize_text(text, max_len, min_len, use_sample):
+    summarizer = pipeline("summarization")
+    summary = summarizer(text, max_length=max_len, min_length=min_len, do_sample=use_sample)
+    return summary[0]['summary_text']
+
+# User inputs
+user_text = input("Enter the text you want to summarize: ")
+max_length = int(input("Enter the maximum length of the summary: "))
+min_length = int(input("Enter the minimum length of the summary: "))
+do_sample = input("Do you want to use sampling in generation? (yes/no): ").lower() == 'yes'
+
+# Perform summarization based on user inputs
+custom_summary = summarize_text(user_text, max_length, min_length, do_sample)
+
+print(custom_summary)
+
