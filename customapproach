@@ -1,30 +1,37 @@
-from sklearn.feature_extraction.text import CountVectorizer
+'''from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 from transformers import pipeline
+from concurrent.futures import ThreadPoolExecutor
+
+# Outside the functions
+global_vectorizer = TfidfVectorizer()
+summarizer_model = pipeline("summarization")
 
 # Extractive Summarization Function
 def extractive_summarization(text, num_sentences=3):
     sentences = text.split('.')
-    vectorizer = CountVectorizer().fit_transform(sentences)
-    vectors = vectorizer.toarray()
+    vectors = global_vectorizer.fit_transform(sentences).toarray()
     cosine_matrix = cosine_similarity(vectors)
     scores = cosine_matrix.sum(axis=1)
-    ranked_sentences = [sentences[i] for i in np.argsort(scores, axis=0)[-num_sentences:]]
+    ranked_sentences = [sentences[i] for i in scores.argsort(axis=0)[-num_sentences:]]
     return ' '.join(ranked_sentences)
 
 # Abstractive Summarization Function
 def abstractive_summarization(text):
-    summarizer = pipeline("summarization")
-    summary = summarizer(text, max_length=130, min_length=30, do_sample=False)
+    summary = summarizer_model(text, max_length=130, min_length=30, do_sample=False)
     return summary[0]['summary_text']
 
-# Query-Based Summarization Function (Conceptual Example)
-def query_based_summarization(query, text):
-    # This is a placeholder for the actual implementation
-    # which would involve searching the text for the query
-    # and then summarizing the relevant parts.
-    return "Query-based summary based on: " + query
+# Query-Based Summarization Function
+def query_based_summarization(query, text, num_sentences=3):
+    combined_text = query + ' ' + text
+    sentences = combined_text.split('.')
+    vectors = global_vectorizer.fit_transform(sentences)
+    query_vector = vectors[0]
+    cosine_similarities = cosine_similarity(query_vector, vectors).flatten()
+    ranked_sentences = [(sentence, score) for sentence, score in zip(sentences, cosine_similarities)]
+    ranked_sentences = sorted(ranked_sentences, key=lambda x: x[1], reverse=True)
+    summary_sentences = [sentence for sentence, _ in ranked_sentences[:num_sentences]]
+    return ' '.join(summary_sentences)
 
 # Main Function to Combine Summarizations
 def combined_summarization(text, query=None):
@@ -37,6 +44,78 @@ def combined_summarization(text, query=None):
         print(query_based_summarization(query, text))
 
 # Example Usage
-text = "Your text goes here."
-query = "Optional query for query-based summarization."
+text = """New York (CNN Business)Netflix is synonymous with streaming, but its competitors have a distinct advantage that threatens the streaming leader's position at the top.
+Disney has Disney+, but it also has theme parks, plush Baby Yoda dolls, blockbuster Marvel movies and ESPN. Comcast (CMCSA), Amazon (AMZN), ViacomCBS (VIACA), CNN's parent company WarnerMedia and Apple (AAPL) all have their own streaming services, too, but they also have other forms of revenue.
+As for Netflix (NFLX), its revenue driver is based entirely on building its subscriber base. It's worked out well for the company — so far. But it's starting to look like the king of streaming will soon need something other than new subscribers to keep growing.
+The streaming service reported Tuesday it now has 208 million subscribers globally, after adding 4 million subscribers in the first quarter of 2021. But that number missed expectations and the forecasts for its next quarter were also pretty weak.
+That was a big whiff for Netflix — a company coming off a massive year of growth thanks in large part to the pandemic driving people indoors — and Wall Street's reaction has not been great.
+The company's stock dropped as much as 8% on Wednesday, leading some to wonder what the future of the streamer looks like if competition continues to gain strength, people start heading outdoors and if, most importantly, its growth slows.
+"If you hit a wall with [subscriptions] then you pretty much don't have a super growth strategy anymore in your most developed markets," Michael Nathanson, a media analyst and founding partner at MoffettNathanson, told CNN Business. "What can they do to take even more revenue out of the market, above and beyond streaming revenues?"
+Or put another way, the company's lackluster user growth last quarter is a signal that it wouldn't hurt if Netflix — a company that's lived and died with its subscriber numbers — started thinking about other ways to make money."""
+query = "Brief on the growth of Netflix"
+
+# Generate Extractive, Abstractive, and Query-Based Summaries
+combined_summarization(text, query)'''
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import pipeline
+from concurrent.futures import ThreadPoolExecutor
+
+# Initialize outside the functions
+global_vectorizer = TfidfVectorizer()
+summarizer_model = pipeline("summarization")
+
+# Extractive Summarization Function
+def extractive_summarization(text, num_sentences=3):
+    sentences = text.split('.')
+    vectors = global_vectorizer.fit_transform(sentences).toarray()
+    cosine_matrix = cosine_similarity(vectors)
+    scores = cosine_matrix.sum(axis=1)
+    ranked_sentences = [sentences[i] for i in scores.argsort(axis=0)[-num_sentences:]]
+    return ' '.join(ranked_sentences)
+
+# Abstractive Summarization Function
+def abstractive_summarization(text):
+    summary = summarizer_model(text, max_length=130, min_length=30, do_sample=False)
+    return summary[0]['summary_text']
+
+# Query-Based Summarization Function
+def query_based_summarization(query, text, num_sentences=3):
+    combined_text = query + ' ' + text
+    sentences = combined_text.split('.')
+    vectors = global_vectorizer.fit_transform(sentences)
+    query_vector = vectors[0]
+    cosine_similarities = cosine_similarity(query_vector, vectors).flatten()
+    ranked_sentences = [(sentence, score) for sentence, score in zip(sentences, cosine_similarities)]
+    ranked_sentences = sorted(ranked_sentences, key=lambda x: x[1], reverse=True)
+    summary_sentences = [sentence for sentence, _ in ranked_sentences[:num_sentences]]
+    return ' '.join(summary_sentences)
+
+# Main Function to Combine Summarizations
+def combined_summarization(text, query=None):
+    with ThreadPoolExecutor() as executor:
+        extractive_future = executor.submit(extractive_summarization, text)
+        abstractive_future = executor.submit(abstractive_summarization, text)
+        if query:
+            query_based_future = executor.submit(query_based_summarization, query, text)
+
+    print("Extractive Summary:")
+    print(extractive_future.result())
+    print("\nAbstractive Summary:")
+    print(abstractive_future.result())
+    if query:
+        print("\nQuery-Based Summary:")
+        print(query_based_future.result())
+
+# Example Usage
+text = """New York (CNN Business)Netflix is synonymous with streaming, but its competitors have a distinct advantage that threatens the streaming leader's position at the top.
+Disney has Disney+, but it also has theme parks, plush Baby Yoda dolls, blockbuster Marvel movies and ESPN. Comcast (CMCSA), Amazon (AMZN), ViacomCBS (VIACA), CNN's parent company WarnerMedia and Apple (AAPL) all have their own streaming services, too, but they also have other forms of revenue.
+As for Netflix (NFLX), its revenue driver is based entirely on building its subscriber base. It's worked out well for the company — so far. But it's starting to look like the king of streaming will soon need something other than new subscribers to keep growing.
+The streaming service reported Tuesday it now has 208 million subscribers globally, after adding 4 million subscribers in the first quarter of 2021. But that number missed expectations and the forecasts for its next quarter were also pretty weak.
+That was a big whiff for Netflix — a company coming off a massive year of growth thanks in large part to the pandemic driving people indoors — and Wall Street's reaction has not been great.
+The company's stock dropped as much as 8% on Wednesday, leading some to wonder what the future of the streamer looks like if competition continues to gain strength, people start heading outdoors and if, most importantly, its growth slows.
+"If you hit a wall with [subscriptions] then you pretty much don't have a super growth strategy anymore in your most developed markets," Michael Nathanson, a media analyst and founding partner at MoffettNathanson, told CNN Business. "What can they do to take even more revenue out of the market, above and beyond streaming revenues?"
+Or put another way, the company's lackluster user growth last quarter is a signal that it wouldn't hurt if Netflix — a company that's lived and died with its subscriber numbers — started thinking about other ways to make money."""
+query = "Brief on the growth of Netflix"
 combined_summarization(text, query)
+
