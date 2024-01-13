@@ -1,50 +1,97 @@
+import torch
 import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.corpus import brown
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from summarizer import Summarizer
+from concurrent.futures import ThreadPoolExecutor
 
-# Download the necessary NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
+nltk.download('brown')
+# Check if GPU is available and if not, use CPU
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Sample text to summarize
-text = """This century is the age of Science. We cannot imagine our lives sans Science. Science has become a part and parcel of our lives. Science has become a symbol of progress. The progress is in the field of medicine, education, industry, etc., and we enjoy the comforts of science in all fields. Science has developed effective transport and communication system. Buses, cars, trains, planes have made transportation easy and comfortable, safe and fast. Man has even landed on moon with the help of technology.
-In the field of medicine, science has worked wonders. Almost all kinds of diseases are entirely cured by modern drugs and medicines. Medicine has reduced pain and suffering. Electricity is another important scientific invention. the comforts of our life like electric lamps, refrigerators, fans, grinders, washing machines, etc. are all run by electricity.
-Scientific method of cultivation has solved the flood problem. The pests destroying the crops are killed immediately by pesticides. Poultry and sericulture are also improved. Thus science is helpful in all walks of life and makes our life comfortable and happy"""
-# Tokenize the text into sentences
-sentences = sent_tokenize(text)
+corpus=' '.join(brown.words())
 
-# Tokenize the text into words and remove stopwords
-stopWords = set(stopwords.words("english"))
-words = word_tokenize(text)
-freqTable = dict()
-for word in words:
-    word = word.lower()
-    if word not in stopWords:
-        if word in freqTable:
-            freqTable[word] += 1
-        else:
-            freqTable[word] = 1
+# Initialize outside the functions
+global_vectorizer = TfidfVectorizer().fit(corpus.split('.'))
+summarizer_model = pipeline("summarization")
 
-# Score sentences based on frequency of words
-sentenceValue = dict()
-for sentence in sentences:
-    for word, freq in freqTable.items():
-        if word in sentence.lower():
-            if sentence in sentenceValue:
-                sentenceValue[sentence] += freq
-            else:
-                sentenceValue[sentence] = freq
+tokenizer_t5 = GPT2Tokenizer.from_pretrained('gpt2')
+model_t5 = GPT2LMHeadModel.from_pretrained('gpt2').to(device)
+bert_model = Summarizer()
 
-# Calculate the average score for sentences
-sumValues = 0
-for sentence in sentenceValue:
-    sumValues += sentenceValue[sentence]
-average = int(sumValues / len(sentenceValue))
+# Fit the vectorizer once on a large corpus of text
 
-# Generate the summary
-summary = ''
-for sentence in sentences:
-    if (sentence in sentenceValue) and (sentenceValue[sentence] > (1.2 * average)):
-        summary += " " + sentence
 
-print(summary)
+# Extractive Summarization Function using BERT
+def bert_extractive_summarization(text, ratio=0.5):
+    return bert_model(text, ratio=ratio)
+
+# Abstractive Summarization Function using GPT-2
+# Abstractive Summarization Function using GPT-2
+def gpt2_abstractive_summarization(text):
+    input_ids = tokenizer_t5.encode(text, return_tensors='pt', max_length=512, truncation=True)
+    
+    # Adjust max_length to match the length of the input_ids tensor
+    max_length = input_ids.size(1)
+    
+    outputs = model_t5.generate(input_ids, max_length=max_length, num_beams=2, no_repeat_ngram_size=2, top_k=50, top_p=0.95, temperature=0.7)
+    
+    return tokenizer_t5.decode(outputs[0], skip_special_tokens=True)
+
+
+# Paraphrase Function using GPT-2
+def paraphrase_text_with_gpt2(text):
+    input_ids = tokenizer_t5.encode(text, return_tensors='pt', max_length=512, truncation=True)
+    max_length = input_ids.size(1)  # Get the length of the input tensor
+    outputs = model_t5.generate(input_ids, max_length=max_length, num_beams=2, no_repeat_ngram_size=2, top_k=50, top_p=0.95, temperature=0.7)
+    return tokenizer_t5.decode(outputs[0], skip_special_tokens=True)
+
+
+# Query-Based Summarization Function
+def query_based_summarization(query, text, num_sentences=3):
+    combined_text = query + ' ' + text
+    sentences = combined_text.split('.')
+    vectors = global_vectorizer.transform(sentences)
+    query_vector = vectors[0]
+    cosine_similarities = cosine_similarity(query_vector, vectors).flatten()
+    ranked_sentences = [(sentence, score) for sentence, score in zip(sentences, cosine_similarities)]
+    ranked_sentences = sorted(ranked_sentences, key=lambda x: x[1], reverse=True)
+    summary_sentences = [sentence for sentence, _ in ranked_sentences[:num_sentences]]
+    return ' '.join(summary_sentences)
+
+
+
+
+def combined_summarization_with_paraphrasing(text, query=None):
+    with ThreadPoolExecutor() as executor:
+        bert_extractive_future = executor.submit(bert_extractive_summarization, text)
+        gpt2_abstractive_future = executor.submit(gpt2_abstractive_summarization, text)
+        paraphrase_future = executor.submit(paraphrase_text_with_gpt2, text)
+        if query:
+            query_based_future = executor.submit(query_based_summarization, query, text)
+
+    print("BERT Extractive Summary:")
+    print(bert_extractive_future.result())
+    print("\nGPT-2 Abstractive Summary:")
+    print(gpt2_abstractive_future.result())
+    print("\nParaphrased Text:")
+    print(paraphrase_future.result())
+    if query:
+        print("\nQuery-Based Summary:")
+        print(query_based_future.result())
+
+
+# Example Usage
+text = '''Netflix is synonymous with streaming, but its competitors have a distinct advantage that threatens the streaming leader's position at the top.
+Disney has Disney+, but it also has theme parks, plush Baby Yoda dolls, blockbuster Marvel movies and ESPN. Comcast (CMCSA), Amazon (AMZN), ViacomCBS (VIACA), CNN's parent company WarnerMedia and Apple (AAPL) all have their own streaming services, too, but they also have other forms of revenue.
+As for Netflix (NFLX), its revenue driver is based entirely on building its subscriber base. It's worked out well for the company - so far. But it's starting to look like the king of streaming will soon need something other than new subscribers to keep growing.
+The streaming service reported Tuesday it now has 208 million subscribers globally, after adding 4 million subscribers in the first quarter of 2021. But that number missed expectations and the forecasts for its next quarter were also pretty weak.
+That was a big whiff for Netflix - a company coming off a massive year of growth thanks in large part to the pandemic driving people indoors - and Wall Street's reaction has not been great.
+The company's stock dropped as much as 8% on Wednesday, leading some to wonder what the future of the streamer looks like if competition continues to gain strength, people start heading outdoors and if, most importantly, its growth slows.'''
+query = "What is this topic about?"
+
+combined_summarization_with_paraphrasing(text, query)
+
+
