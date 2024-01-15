@@ -84,13 +84,10 @@ def combined_summarization_with_paraphrasing(text, query=None):
 
 
 # Example Usage
-text = '''Netflix is synonymous with streaming, but its competitors have a distinct advantage that threatens the streaming leader's position at the top.
-Disney has Disney+, but it also has theme parks, plush Baby Yoda dolls, blockbuster Marvel movies and ESPN. Comcast (CMCSA), Amazon (AMZN), ViacomCBS (VIACA), CNN's parent company WarnerMedia and Apple (AAPL) all have their own streaming services, too, but they also have other forms of revenue.
-As for Netflix (NFLX), its revenue driver is based entirely on building its subscriber base. It's worked out well for the company - so far. But it's starting to look like the king of streaming will soon need something other than new subscribers to keep growing.
-The streaming service reported Tuesday it now has 208 million subscribers globally, after adding 4 million subscribers in the first quarter of 2021. But that number missed expectations and the forecasts for its next quarter were also pretty weak.
-That was a big whiff for Netflix - a company coming off a massive year of growth thanks in large part to the pandemic driving people indoors - and Wall Street's reaction has not been great.
-The company's stock dropped as much as 8% on Wednesday, leading some to wonder what the future of the streamer looks like if competition continues to gain strength, people start heading outdoors and if, most importantly, its growth slows.'''
-query = "What is this topic about?"
+text = input('Enter your text')
+yesorno=input('Do you have any query with respect to which summarisation has to be done? Yes or No')
+if(yesorno.lower()=='yes'):
+    query=input('Enter your query')
 
 combined_summarization_with_paraphrasing(text, query)
 
